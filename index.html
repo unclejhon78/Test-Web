@@ -340,7 +340,6 @@
         let metodePembayaranPilihan = 'CASH';
         let currentStrukData = null;
 
-        // Inisialisasi awal saat halaman dibuka
         window.onload = function() {
             document.getElementById('input-tanggal').valueAsDate = new Date();
             document.getElementById('filter-tanggal').valueAsDate = new Date();
@@ -352,7 +351,6 @@
             muatDropdownEditTrx();
         };
 
-        // Generator Nomor Pembelian Otomatis
         function generateNomorPembelian() {
             const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
             const count = daftarTransaksi.length + 1;
@@ -361,7 +359,6 @@
             return noTrx;
         }
 
-        // Navigasi Tab Utama
         function switchTab(tab) {
             document.getElementById('tab-kasir').classList.add('hidden');
             document.getElementById('tab-admin').classList.add('hidden');
@@ -379,7 +376,6 @@
             }
         }
 
-        // Navigasi Sub-Tab Admin
         function switchAdminSubTab(sub) {
             ['laporan', 'menu', 'edit', 'log'].forEach(s => {
                 document.getElementById(`subtab-${s}`).classList.add('hidden');
@@ -391,7 +387,6 @@
             document.getElementById(`subtab-btn-${sub}`).classList.remove('text-stone-600');
         }
 
-        // Metode Pembayaran Selector
         function setMetodePembayaran(metode) {
             metodePembayaranPilihan = metode;
             if(metode === 'CASH') {
@@ -403,9 +398,8 @@
             }
         }
 
-        // Manajemen Cart Multi-Item Kasir
         function tambahItemCart() {
-            cartItems.push({ menuIndex: 0, qty: 1 });
+            cartItems.push({ menuIndex: "", qty: 1 });
             renderCart();
         }
 
@@ -426,15 +420,18 @@
             let total = 0;
 
             cartItems.forEach((item, idx) => {
-                const menuPilihan = daftarMenu[item.menuIndex] || daftarMenu[0];
-                const subtotal = menuPilihan.harga * item.qty;
-                total += subtotal;
+                let subtotal = 0;
+                if(item.menuIndex !== "" && daftarMenu[item.menuIndex]) {
+                    subtotal = daftarMenu[item.menuIndex].harga * item.qty;
+                    total += subtotal;
+                }
 
                 const div = document.createElement('div');
                 div.className = "flex items-center space-x-2 bg-stone-50 p-2 rounded-xl border border-stone-200 text-xs";
                 div.innerHTML = `
                     <select onchange="updateCartItem(${idx}, 'menuIndex', this.value)" class="flex-1 bg-white border border-stone-300 rounded-lg p-1.5 focus:outline-none">
-                        ${daftarMenu.map((m, mIdx) => `<option value="${mIdx}" ${mIdx == item.menuIndex ? 'selected' : ''}>${m.nama} (Rp${m.harga.toLocaleString()})</option>`).join('')}
+                        <option value="">-- Pilih Menu --</option>
+                        ${daftarMenu.map((m, mIdx) => `<option value="${mIdx}" ${mIdx === item.menuIndex ? 'selected' : ''}>${m.nama} (Rp${m.harga.toLocaleString()})</option>`).join('')}
                     </select>
                     <input type="number" min="1" value="${item.qty}" onchange="updateCartItem(${idx}, 'qty', parseInt(this.value)||1)" class="w-12 text-center bg-white border border-stone-300 rounded-lg p-1.5">
                     <span class="w-20 text-right font-semibold text-stone-700">Rp ${subtotal.toLocaleString()}</span>
@@ -446,9 +443,8 @@
             document.getElementById('display-total-harga').innerText = `Rp ${total.toLocaleString()}`;
         }
 
-        // Manajemen Cart Multi-Item Edit Admin
         function tambahItemEditCart() {
-            editCartItems.push({ nama: daftarMenu[0].nama, harga: daftarMenu[0].harga, qty: 1, subtotal: daftarMenu[0].harga });
+            editCartItems.push({ nama: "", harga: 0, qty: 1, subtotal: 0 });
             renderEditCart();
         }
 
@@ -459,11 +455,17 @@
 
         function updateEditCartItem(index, field, value) {
             if(field === 'menuNama') {
-                const selectedMenu = daftarMenu.find(m => m.nama === value);
-                if(selectedMenu) {
-                    editCartItems[index].nama = selectedMenu.nama;
-                    editCartItems[index].harga = selectedMenu.harga;
-                    editCartItems[index].subtotal = selectedMenu.harga * editCartItems[index].qty;
+                if(value === "") {
+                    editCartItems[index].nama = "";
+                    editCartItems[index].harga = 0;
+                    editCartItems[index].subtotal = 0;
+                } else {
+                    const selectedMenu = daftarMenu.find(m => m.nama === value);
+                    if(selectedMenu) {
+                        editCartItems[index].nama = selectedMenu.nama;
+                        editCartItems[index].harga = selectedMenu.harga;
+                        editCartItems[index].subtotal = selectedMenu.harga * editCartItems[index].qty;
+                    }
                 }
             } else if(field === 'qty') {
                 const q = parseInt(value) || 1;
@@ -482,6 +484,7 @@
                 div.className = "flex items-center space-x-2 bg-stone-50 p-2 rounded-xl border border-stone-200 text-xs";
                 div.innerHTML = `
                     <select onchange="updateEditCartItem(${idx}, 'menuNama', this.value)" class="flex-1 bg-white border border-stone-300 rounded-lg p-1.5 focus:outline-none">
+                        <option value="">-- Pilih Menu --</option>
                         ${daftarMenu.map(m => `<option value="${m.nama}" ${m.nama === item.nama ? 'selected' : ''}>${m.nama} (Rp${m.harga.toLocaleString()})</option>`).join('')}
                     </select>
                     <input type="number" min="1" value="${item.qty}" onchange="updateEditCartItem(${idx}, 'qty', this.value)" class="w-12 text-center bg-white border border-stone-300 rounded-lg p-1.5">
@@ -492,12 +495,23 @@
             });
         }
 
-        // Simpan Transaksi & Tampilkan Struk
         function simpanDanCetakStruk() {
             const tanggal = document.getElementById('input-tanggal').value;
             const namaPelanggan = document.getElementById('input-nama-pelanggan').value.trim() || 'Guest';
             const noHp = document.getElementById('input-no-hp').value.trim();
             const noPembelian = document.getElementById('display-no-pembelian').innerText;
+
+            // Validasi item pesanan tidak boleh ada yang kosong
+            for(let item of cartItems) {
+                if(item.menuIndex === "" || item.menuIndex === undefined) {
+                    alert('Silakan pilih menu pesanan terlebih dahulu pada setiap baris!');
+                    return;
+                }
+            }
+            if(cartItems.length === 0) {
+                alert('Daftar menu pesanan masih kosong!');
+                return;
+            }
 
             let total = 0;
             const itemsDetail = cartItems.map(item => {
@@ -569,20 +583,31 @@
                 alert('Nomor HP pelanggan belum diisi pada form transaksi!');
                 return;
             }
-            let text = `*PULANG KE RUMAH (PKR)*\n`;
-            text += `No: ${currentStrukData.noPembelian}\n`;
-            text += `Tanggal: ${currentStrukData.tanggal}\n`;
-            text += `Pelanggan: ${currentStrukData.namaPelanggan}\n\n`;
-            text += `*Pesanan:*\n`;
-            currentStrukData.items.forEach(i => {
-                text += `- ${i.qty}x ${i.nama} (@Rp ${i.harga.toLocaleString()}) = Rp ${i.subtotal.toLocaleString()}\n`;
-            });
-            text += `\n*TOTAL: Rp ${currentStrukData.total.toLocaleString()}*\n`;
-            text += `Metode Bayar: ${currentStrukData.metode}\n\n`;
-            text += `Terima kasih sudah berkunjung ke Pulang Ke Rumah!`;
 
-            let phone = currentStrukData.noHp.replace(/^0/, '62');
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+            const strukElement = document.getElementById('struk-area');
+            html2canvas(strukElement, { scale: 3 }).then(canvas => {
+                canvas.toBlob(blob => {
+                    const file = new File([blob], `Struk-${currentStrukData.noPembelian}.jpg`, { type: 'image/jpeg' });
+                    let phone = currentStrukData.noHp.replace(/^0/, '62');
+                    let text = `Halo Kak ${currentStrukData.namaPelanggan}, berikut nota struk pembelian di Pulang Ke Rumah (PKR) [No: ${currentStrukData.noPembelian}]. Terima kasih!`;
+
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        navigator.share({
+                            files: [file],
+                            title: 'Struk Pulang Ke Rumah',
+                            text: text,
+                        }).catch(() => {});
+                    } else {
+                        const link = document.createElement('a');
+                        link.download = file.name;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+
+                        alert('Struk JPG telah otomatis disimpan ke HP Anda.\nSilakan lampirkan gambar tersebut di chat WhatsApp yang akan terbuka.');
+                        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                    }
+                }, 'image/jpeg', 1.0);
+            });
         }
 
         function cekLoginAdmin() {
@@ -679,14 +704,12 @@
             document.getElementById('stat-total-trx').innerText = `${filteredTrx.length} Transaksi`;
         }
 
-        // Export PDF sesuai format yang diminta
         function exportPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             const periode = document.getElementById('filter-periode').value;
             const tanggalFilter = document.getElementById('filter-tanggal').value;
 
-            // Filter data sesuai yang sedang dipilih di laporan
             let filteredTrx = daftarTransaksi.filter(t => {
                 if(periode === 'harian') {
                     return t.tanggal === tanggalFilter;
@@ -698,7 +721,6 @@
                 return true;
             });
 
-            // Header PDF
             doc.setFontSize(14);
             doc.text("Laporan Penjualan - Pulang Ke Rumah (PKR)", 14, 15);
             doc.setFontSize(10);
@@ -732,10 +754,9 @@
             doc.line(14, y, 195, y);
             y += 8;
 
-            // Bagian Ringkasan Total
             doc.text(`Total Penjualan (${periode.toUpperCase()}): Rp ${totalCash.toLocaleString()} | Metode Cash`, 14, y);
             y += 7;
-            doc.text(`Total Penjualan (${periode.toUpperCase()}) : Rp ${totalQR.toLocaleString()} | Metode QR Code`, 14, y);
+            doc.text(`Total Penjualan (${periode.toUpperCase()}): Rp ${totalQR.toLocaleString()} | Metode QR Code`, 14, y);
             y += 9;
             
             doc.setFont(undefined, 'bold');
@@ -778,6 +799,12 @@
             if(!note) {
                 alert('Wajib mengisi catatan (note) bagian mana yang diedit!');
                 return;
+            }
+            for(let item of editCartItems) {
+                if(!item.nama || item.nama === "") {
+                    alert('Silakan pilih nama menu pada setiap baris edit pesanan!');
+                    return;
+                }
             }
             if(editCartItems.length === 0) {
                 alert('Pesanan tidak boleh kosong!');
